@@ -1,5 +1,6 @@
 ﻿using FlightMobileApp.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,8 +15,9 @@ namespace FlightMobileApp.Client
     {
         private BlockingCollection<AsyncCommand> _queue;
         private TcpClient telnetClient;
-        
-        public MyTelnetClient()
+        private IConfiguration configuration;
+
+        public MyTelnetClient(IConfiguration configuration)
         {
             _queue = new BlockingCollection<AsyncCommand>();
             // Try to create TcpClient.
@@ -27,6 +29,10 @@ namespace FlightMobileApp.Client
             {
                 // If something got wrong- dont do anything (the model will send a message).
             }
+            string ip = configuration.GetSection("SimulatorInfo").GetSection("IP").Value;
+            int port = Int32.Parse(configuration.GetSection("SimulatorInfo").GetSection("TelnetPort").Value);
+            connect(ip, port);
+            write("data\r\n");
             Start();
         }
         public void connect(string ip, int port)
@@ -79,25 +85,42 @@ namespace FlightMobileApp.Client
                 //Task has multiple exceptions.
                 //var faultedTask = Task.WhenAll(Task.Run(() => { throw new Exception("ErrorFromSimulator"); }), Task.Run(() => { throw new Exception("ErrorFromSimulator"); }));
                 Exception exception = new Exception("ErrorFromSimulator");
-                string path = "/controls/flight/aileron";
-                if (SendToSimulator(path, command.Command.Aileron.ToString()) == -1)
+                string path;
+                if (command.Command.Aileron >= -1 
+                    && command.Command.Aileron <= 1)
                 {
-                    command.Completion.SetException(exception);
+                    path = "/controls/flight/aileron";
+                    if (SendToSimulator(path, command.Command.Aileron.ToString()) == -1)
+                    {
+                        command.Completion.SetException(exception);
+                    }
                 }
-                path = "/controls/engines/current-engine/throttle";
-                if (SendToSimulator(path, command.Command.Throttle.ToString()) == -1)
+                if (command.Command.Throttle >= 0
+                    && command.Command.Throttle <= 1)
                 {
-                    command.Completion.SetException(exception);
+                    path = "/controls/engines/current-engine/throttle";
+                    if (SendToSimulator(path, command.Command.Throttle.ToString()) == -1)
+                    {
+                        command.Completion.SetException(exception);
+                    }
                 }
-                path = "/controls/flight/rudder";
-                if (SendToSimulator(path, command.Command.Rudder.ToString()) == -1)
+                if (command.Command.Rudder >= -1
+                    && command.Command.Rudder <= 1)
                 {
-                    command.Completion.SetException(exception);
+                    path = "/controls/flight/rudder";
+                    if (SendToSimulator(path, command.Command.Rudder.ToString()) == -1)
+                    {
+                        command.Completion.SetException(exception);
+                    }
                 }
-                path = "/controls/flight/elevator";
-                if (SendToSimulator(path, command.Command.Elevator.ToString()) == -1)
+                if (command.Command.Elevator >= -1
+                    && command.Command.Elevator <= 1)
                 {
-                    command.Completion.SetException(exception);
+                    path = "/controls/flight/elevator";
+                    if (SendToSimulator(path, command.Command.Elevator.ToString()) == -1)
+                    {
+                        command.Completion.SetException(exception);
+                    }
                 }
                 res = new OkResult();
                 command.Completion.SetResult(res);

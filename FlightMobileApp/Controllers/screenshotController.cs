@@ -28,7 +28,7 @@ namespace FlightMobileApp.Controllers
 /*            string ip = config.GetSection("SimulatorInfo").GetSection("IP").Value;
             int port = Int32.Parse(config.GetSection("SimulatorInfo").GetSection("HttpPort").Value);
             string strurl = string.Format(ip + ":" + port + "/screenshot");*/
-            HttpWebRequest myRequest = (HttpWebRequest)WebRequest.Create("https://upload.wikimedia.org/wikipedia/commons/c/c9/Moon.jpg");
+            HttpWebRequest myRequest = (HttpWebRequest)WebRequest.Create("http://localhost:5000/screenshot");
             myRequest.Timeout = 10000;
             myRequest.Method = "GET";
             WebResponse myResponse = myRequest.GetResponse();

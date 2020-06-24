@@ -14,32 +14,24 @@ namespace FlightMobileApp.Controllers
     [ApiController]
     public class commandController : ControllerBase
     {
-        private ITelnetClient telenet;
-        private IConfiguration configuration;
-        public commandController(IConfiguration iconfg,ITelnetClient telenet)
+        private MyTelnetClient telenet;
+        public commandController(MyTelnetClient telenet)
         {
-            string ip = iconfg.GetSection("SimulatorInfo").GetSection("IP").Value;
-            int port = Int32.Parse(iconfg.GetSection("SimulatorInfo").GetSection("TelnetPort").Value);
             this.telenet = telenet;
-            configuration = iconfg;
-            telenet.connect(ip, port);
-            telenet.write("data\r\n");
         }
 
         // POST: api/command
         [HttpPost]
         public ActionResult<string> SendCommand([FromBody] Command c)
         {
-            if (c.Aileron < -1 || c.Aileron > 1 || c.Throttle < 0 || c.Throttle > 1 ||
-                c.Elevator < -1 || c.Elevator > 1 || c.Rudder < -1 || c.Rudder > 1)
+            try
+            {
+                telenet.Execute(c);
+            }
+            catch
             {
                 return BadRequest();
             }
-            /*if (commandManager.SendCommand(c,configuration) == -1)
-            {
-                return BadRequest();
-            }*/
-            telenet.Execute(c);
             return Ok();
         }
     }
