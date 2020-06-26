@@ -24,14 +24,30 @@ namespace FlightMobileApp.Controllers
         [HttpPost]
         public ActionResult<string> SendCommand([FromBody] Command c)
         {
+            // Send command to execute and check if it succeed.
+            Task<ActionResult> task = telenet.Execute(c);
+            ActionResult result;
             try
             {
-                telenet.Execute(c);
+                result = task.Result;
             }
-            catch
+            catch (Exception e)
             {
+                if (!telenet.Disconnected)
+                {
+                    telenet.disconnect();
+                }
+                if(e.InnerException.Message== "ErrorFromSimulator")
+                {
+                    return BadRequest();
+                }
+                else if(e.InnerException.Message == "WrongValues")
+                {
+                    return Conflict();
+                }
                 return BadRequest();
             }
+            //System.Threading.Thread.Sleep(15000);
             return Ok();
         }
     }
