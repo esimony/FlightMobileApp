@@ -15,35 +15,27 @@ namespace FlightMobileApp.Client
     {
         private BlockingCollection<AsyncCommand> _queue;
         private TcpClient telnetClient;
-        private IConfiguration configuration;
 
         public MyTelnetClient(IConfiguration configuration)
         {
             _queue = new BlockingCollection<AsyncCommand>();
             Disconnected = false;
-            // Try to create TcpClient- check if needed!!!!!!!!!!!!!!!!!!!!!
-            try
-            {
-                telnetClient = new TcpClient();
-            }
-            catch
-            {
-                // If something got wrong.
-            }
+            telnetClient = new TcpClient();
             // Take ip and port from configuration and connect to server.
             string ip = configuration.GetSection("SimulatorInfo").GetSection("IP").Value;
-            int port = Int32.Parse(configuration.GetSection("SimulatorInfo").GetSection("TelnetPort").Value);
+            int port = Int32.Parse(configuration.GetSection("SimulatorInfo")
+                .GetSection("TelnetPort").Value);
             try
             {
-                connect(ip, port);
-                //IsConnected = true;
-                write("data\r\n");
+                Connect(ip, port);
+                Write("data\r\n");
 
                 // Start the "Start" function.
                 Start();
             } catch
             {
-                //IsConnected = false;
+                // If connect to server failed - continue the program without him
+                // and try connect later.
             }
         }
         public bool Disconnected { get; set; }
@@ -53,9 +45,9 @@ namespace FlightMobileApp.Client
                 return telnetClient.Connected;
             }
         }
-        public void connect(string ip, int port)
+        public void Connect(string ip, int port)
         {
-            // Define timeout
+            // Define timeout.
             telnetClient.SendTimeout = 10000;
             telnetClient.ReceiveTimeout = 10000;
 
@@ -64,7 +56,7 @@ namespace FlightMobileApp.Client
             Disconnected = false;
         }
 
-        public void write(string command)
+        public void Write(string command)
         {
             // Convert the message to byte array and send it to server.
             byte[] message;
@@ -72,7 +64,7 @@ namespace FlightMobileApp.Client
             telnetClient.GetStream().Write(message, 0, message.Length);
         }
 
-        public string read()
+        public string Read()
         {
             // Read the message from the server to byte array and Convert it to string.
             int numberOfBytesRead;
@@ -83,9 +75,9 @@ namespace FlightMobileApp.Client
             return myCompleteMessage;
         }
 
-        public void disconnect()
+        public void Disconnect()
         {
-            // Close the client.
+            // Close the client and open new one for next time.
             telnetClient.Close();
             Disconnected = true;
             telnetClient = new TcpClient();
@@ -107,90 +99,76 @@ namespace FlightMobileApp.Client
                 // Define the exeption that could happen.
                 Exception exceptionSimulator = new Exception("ErrorFromSimulator");
                 Exception exceptionValues = new Exception("WrongValues");
-                string path;
+                int result;
 
-                // Check about each property if its on range. 
-                if (command.Command.Aileron >= -1 
-                    && command.Command.Aileron <= 1)
-                {
-                    // If it is - send the set command to simulator and check if it failed
-                    path = "/controls/flight/aileron";
-                    if (SendToSimulator(path, command.Command.Aileron.ToString()) == -1)
-                    {
-                        // Here there is a problem with the connection.
-                        command.Completion.SetException(exceptionSimulator);
-                        continue;
-                    } else if (SendToSimulator(path, command.Command.Aileron.ToString()) == -2) {
-                        // Here there is a problem with the values we got fron server.
-                        command.Completion.SetException(exceptionValues);
-                        continue;
-                    }
+                result = CheckPropertyBeforeSend(command,command.Command.Aileron, 
+                    "/controls/flight/aileron",-1,1, exceptionSimulator, exceptionValues);
+                if (result == -1) {
+                    // Here there is a problem with the connection.
+                    continue;
                 }
-
-                // All of the property is the same idea like before.
-                if (command.Command.Throttle >= 0
-                    && command.Command.Throttle <= 1)
-                {
-                    path = "/controls/engines/current-engine/throttle";
-                    if (SendToSimulator(path, command.Command.Throttle.ToString()) == -1)
-                    {
-                        command.Completion.SetException(exceptionSimulator);
-                        continue;
-                    } else if (SendToSimulator(path, command.Command.Throttle.ToString()) == -2)
-                    {
-                        command.Completion.SetException(exceptionValues);
-                        continue;
-                    }
+                result = CheckPropertyBeforeSend(command,command.Command.Throttle,
+                    "/controls/engines/current-engine/throttle",0,1, 
+                    exceptionSimulator, exceptionValues);
+                if (result == -1) {
+                    continue;
                 }
-                if (command.Command.Rudder >= -1
-                    && command.Command.Rudder <= 1)
-                {
-                    path = "/controls/flight/rudder";
-                    if (SendToSimulator(path, command.Command.Rudder.ToString()) == -1)
-                    {
-                        command.Completion.SetException(exceptionSimulator);
-                        continue;
-                    } else if (SendToSimulator(path, command.Command.Rudder.ToString()) == -2)
-                    {
-                        command.Completion.SetException(exceptionValues);
-                        continue;
-                    }
+                result = CheckPropertyBeforeSend(command,command.Command.Rudder,
+                    "/controls/flight/rudder", -1, 1, exceptionSimulator, exceptionValues);
+                if (result == -1) {
+                    continue;
                 }
-                if (command.Command.Elevator >= -1
-                    && command.Command.Elevator <= 1)
-                {
-                    path = "/controls/flight/elevator";
-                    if (SendToSimulator(path, command.Command.Elevator.ToString()) == -1)
-                    {
-                        command.Completion.SetException(exceptionSimulator);
-                        continue;
-                    } else if (SendToSimulator(path, command.Command.Elevator.ToString()) == -2) {
-                        command.Completion.SetException(exceptionValues);
-                        continue;
-                    }
+                result = CheckPropertyBeforeSend(command,command.Command.Elevator, 
+                    "/controls/flight/elevator", -1 ,1, exceptionSimulator, exceptionValues);
+                if (result == -1) {
+                    continue;
                 }
-
                 // If everything was fine.
                 res = new OkResult();
                 command.Completion.SetResult(res);
             }
         }
-        public void Start()
+        private void Start()
         {
             // Open new task for the commands.
             Task.Factory.StartNew(ProcessCommands);
         }
 
-        public int SendToSimulator(string path,string property)
+        private int CheckPropertyBeforeSend(AsyncCommand command, double val, string path,
+            int from, int to, Exception exceptionSimulator, Exception exceptionValues)
+        {
+            // Check about each property if its on range. 
+            if (val >= from
+                && val <= to)
+            {
+                // If it is - send the set command to simulator and check if it failed.
+                int result = SendToSimulator(path, val.ToString());
+                if (result == -1)
+                {
+                    // Here there is a problem with the connection.
+                    command.Completion.SetException(exceptionSimulator);
+                    return -1;
+                }
+                else if (result == -2)
+                {
+                    // Here there is a problem with the values we got fron server.
+                    command.Completion.SetException(exceptionValues);
+                    return -1;
+                }
+            }
+            return 0;
+        }
+
+        private int SendToSimulator(string path,string property)
         {
             string messageFromSimulator;
             try
             {
                 // Send to simulator set command.
-                write("set " + path + " " + property + "\r\n");
+                Write("set " + path + " " + property + "\r\n");
                 // Get the value to check if the change succeed
-                write("get "+path+"\r\n");
-                messageFromSimulator = read();
+                Write("get "+path+"\r\n");
+                messageFromSimulator = Read();
                 if (messageFromSimulator.Contains("ERR") || Double.Parse(messageFromSimulator) != Double.Parse(property))
                 {
                     // If something went wrong.

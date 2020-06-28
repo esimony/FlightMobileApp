@@ -10,13 +10,13 @@ namespace FlightMobileApp.Client
     public interface ITelnetClient
     {
         // Connecting to server
-        void connect(string ip, int port);
+        void Connect(string ip, int port);
         // Writing to server.
-        void write(string command);
+        void Write(string command);
         // Blocking call
-        string read();
+        string Read();
         // Disconncting to server
-        void disconnect();
+        void Disconnect();
         Task<ActionResult> Execute(Command cmd);
     }
 }

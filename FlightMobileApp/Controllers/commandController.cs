@@ -27,28 +27,36 @@ namespace FlightMobileApp.Controllers
             // Send command to execute and check if it succeed.
             Task<ActionResult> task = telenet.Execute(c);
             ActionResult result;
-            try
-            {
+            try {
+                // Check if task finished with ok code.
                 result = task.Result;
             }
-            catch (Exception e)
+            catch (Exception e) {
+                int res = IfTaskFailed(e);
+                if (res == 1) {
+                    return BadRequest();
+                } else if (res == 2) {
+                    return Conflict();
+                }
+            }
+            return Ok();
+        }
+        private int IfTaskFailed(Exception e)
+        {
+            // If task didnt succeed - check why.
+            if (e.InnerException.Message == "ErrorFromSimulator")
             {
                 if (!telenet.Disconnected)
                 {
-                    telenet.disconnect();
+                    telenet.Disconnect();
                 }
-                if(e.InnerException.Message== "ErrorFromSimulator")
-                {
-                    return BadRequest();
-                }
-                else if(e.InnerException.Message == "WrongValues")
-                {
-                    return Conflict();
-                }
-                return BadRequest();
+                return 1;
             }
-            //System.Threading.Thread.Sleep(15000);
-            return Ok();
+            else if (e.InnerException.Message == "WrongValues")
+            {
+                return 2;
+            }
+            return 1;
         }
     }
 }

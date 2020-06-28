@@ -17,10 +17,8 @@ namespace FlightMobileApp.Controllers
     [ApiController]
     public class screenshotController : ControllerBase
     {
-        // ask noaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         private IConfiguration configuration;
         private MyTelnetClient telenet;
-        //private static Mutex mut = new Mutex();
         public screenshotController(IConfiguration configuration,MyTelnetClient telenet)
         {
             this.configuration = configuration;
@@ -30,25 +28,33 @@ namespace FlightMobileApp.Controllers
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            if (!telenet.IsConnected)
-            {
-                //telenet.IsConnected = true;
-                try
-                {
+            if (!telenet.IsConnected) {
+                try {
+                    // If we didnt connect to server yet - try connect to it now.
                     string ip = configuration.GetSection("SimulatorInfo").GetSection("IP").Value;
                     int port = Int32.Parse(configuration.GetSection("SimulatorInfo")
                         .GetSection("TelnetPort").Value);
-                    telenet.connect(ip, port);
-                    telenet.write("data\r\n");
+                    telenet.Connect(ip, port);
+                    telenet.Write("data\r\n");
                 }
-                catch
-                {
-                    //telenet.IsConnected = false;
+                catch {
                     return BadRequest();
                 }
             }
-            try
-            {
+            byte[] data = await GetScreenshotFromSimulator();
+            if (data != null) {
+                // Convert byte array to image.
+                return File(data, "image/png");
+            } else {
+                // If something went wrong.
+                return BadRequest();
+            }
+        }
+
+        private async Task<byte[]> GetScreenshotFromSimulator()
+        {
+            byte[] data;
+            try {
                 // Create the request. - here need to change to real url!!!!!!!!!!!!!!!!!!!!!!!!
                 HttpWebRequest myRequest = (HttpWebRequest)WebRequest
                     .Create("http://localhost:5000/screenshot");
@@ -65,16 +71,11 @@ namespace FlightMobileApp.Controllers
                 // Convert the response to byte array.
                 MemoryStream ms = new MemoryStream();
                 myResponse.GetResponseStream().CopyTo(ms);
-                byte[] data = ms.ToArray();
-
-                // Convert byte array to image.
-                return File(data, "image/png");
+                data = ms.ToArray();
+            } catch (Exception) {
+                data = null;
             }
-            catch (Exception)
-            {
-                // If something went wrong.
-                return BadRequest();
-            }
+            return data;
         }
     }
 }
